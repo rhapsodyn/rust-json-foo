@@ -1,0 +1,1 @@
+cargo build --release && valgrind --tool=callgrind ./target/release/rust-json-foo
