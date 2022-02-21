@@ -1,14 +1,15 @@
-// use serde_json;
+#[cfg(test)]
+use serde_json::{self, Value};
 use smallvec::SmallVec;
 use smartstring::alias::String;
 use std::collections::HashMap;
-use std::env;
 use std::error::Error;
 use std::fmt::Display;
-use std::fs;
 use std::ops::Index;
 use std::str::FromStr;
 use std::time::SystemTime;
+
+const JSON_CONTENT: &str = std::include_str!("foo.json");
 
 #[derive(Debug, PartialEq)]
 enum Json {
@@ -32,13 +33,6 @@ struct JsonWithStartCursor {
     json: Json,
     cursor: usize,
 }
-
-// unsafe impl smallvec::Array for JsonWithStartCursor {
-//     type Item = JsonWithStartCursor;
-//     fn size() -> usize {
-//         mem::size_of::<JsonWithStartCursor>()
-//     }
-// }
 
 impl Index<usize> for Json {
     type Output = Json;
@@ -81,25 +75,11 @@ struct StateWithCursor {
     cursor: usize,
 }
 
-// unsafe impl smallvec::Array for StateWithCursor {
-//     type Item = StateWithCursor;
-//     fn size() -> usize {
-//         mem::align_of::<StateWithCursor>()
-//     }
-// }
-
 #[derive(Debug, PartialEq, Clone)]
 enum ObjectParseState {
     ParseKey,
     ParseValue,
 }
-
-// unsafe impl smallvec::Array for ObjectParseState {
-//     type Item = ObjectParseState;
-//     fn size() -> usize {
-//         mem::size_of::<ObjectParseState>()
-//     }
-// }
 
 #[derive(Debug)]
 enum SyntaxError {
@@ -452,23 +432,46 @@ fn true_false_null() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+/// Their (foo vs serde) perf are close in **release**, but not in **debug**
+/// NOT TODO: find why
+#[test]
+fn bench_with_serde() {
+    let mut earlier = SystemTime::now();
+    for _ in 0..ITER / 10 {
+        parse(&JSON_CONTENT).unwrap();
+    }
+    println!(
+        "foo takes: {:?}ms",
+        SystemTime::now()
+            .duration_since(earlier)
+            .unwrap()
+            .as_millis()
+    );
+    earlier = SystemTime::now();
+    for _ in 0..ITER / 10 {
+        serde_json::from_str::<'static, Value>(JSON_CONTENT).unwrap();
+    }
+    println!(
+        "serde takes: {:?}ms",
+        SystemTime::now()
+            .duration_since(earlier)
+            .unwrap()
+            .as_millis()
+    );
+}
+
 const ITER: i32 = 10000;
 
 fn main() -> Result<(), Box<dyn Error>> {
     smartstring::validate();
-    let mut pwd = env::current_dir()?;
-    pwd.push("foo.json");
-    let json_content = fs::read_to_string(pwd.as_path())?;
     let earlier = SystemTime::now();
     for _ in 0..ITER {
-        let _json = parse(&json_content)?;
+        let _json = parse(&JSON_CONTENT)?;
+        // uncomment assert to confirm correctness
         // assert_eq!(
         //     _json["web-app"]["servlet"][0]["servlet-name"],
         //     Json::String("cofaxCDS".into())
         // );
-
-        // let _v: serde_json::Value = serde_json::from_str(json_content.as_str())?;
-        // println!("{:?}", v["data"][1]["key"]);
     }
     println!(
         "good job {:?}ms",

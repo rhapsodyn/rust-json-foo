@@ -4,7 +4,7 @@ const assert = require("assert");
 const NS_PER_SEC = 1e9;
 const ITER = 10000;
 
-const content = fs.readFileSync("./foo.json");
+const content = fs.readFileSync("./src/foo.json");
 const earlier = process.hrtime();
 
 for (let i = 0; i < ITER; i++) {
